@@ -1,0 +1,8 @@
+# API client keys
+secrets.json
+
+# all the checkpoint files
+.ipynb_checkpoints/*
+
+# data files
+*.csv
