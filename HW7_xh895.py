@@ -12,18 +12,17 @@ import datetime
 sc = pyspark.SparkContext()
 path_cb ="hdfs://tmp/citibike.csv"
 path_yc = "hdfs://tmp/yellow.csv.gz"
-cb = sc.textFile(path_cb, 8)
-yc = sc.textFile(path_yc, 8)
-​
+cb = sc.textFile("path_cb", 8)
+yc = sc.textFile("path_yc", 8)
 
-interested_date = '2015-02-01'
-​
+interested_date = "2015-02-01"
+
 def ft1(row):
     '''
     for yellow cab
     '''
     return len(row.split(',')) == 6
-​
+
 def map_date_loc_yc(row):
     '''
     returns dropoff datetime and loc 
@@ -38,9 +37,9 @@ def map_date_loc_yc(row):
     
     except ValueError:
         return 0
-​
+
     #return lat
-​
+
 def map_date_loc_cb(row):
     '''
     returns citibike 
@@ -50,23 +49,23 @@ def map_date_loc_cb(row):
     row[3], row[6], row[7], row[8]
     date, time = datetime.split(' ')
     return date, time, start_station_name, start_station_latitude, start_station_longitude
-​
+
 def ft_citibike_start_station_date(row):
     return row[2] == 'Greenwich Ave & 8 Ave' and row[0] == interested_date
-​
+
 def ft_yc_date(row):
     return row[0] == interested_date
-​
+
 def ft_nonnull(row):
-    
+
     return row != 0
-​
+
 def ft_distance(row):
     """
     Calculate the great circle distance between point and 
     station 
     """
-    
+
     lat1, lon1 = row[2]
     try:
         lat1, lon1 = float(lat1), float(lon1)
@@ -83,14 +82,13 @@ def ft_distance(row):
     except ValueError:
         return False
 
-
 # filter out header
 # mapping date, time, loc
 # filter date
 # filter out distance within 0.25 mile to interested citibike station
 yc1 = yc.filter(lambda x: x[0:4] != 'tpep').filter(ft1).map(map_date_loc_yc).filter(ft_nonnull).\
 filter(ft_yc_date).filter(ft_distance)
-​
+
 # filter out header
 # mapping date, time, stationname, lat, lng 
 cb1 = cb.filter(lambda x: x[0:4] != 'cart').map(map_date_loc_cb).\
@@ -101,39 +99,32 @@ def map_yc_time(row):
     time = row[1]
     time = datetime.datetime.strptime(time, '%H:%M:%S.0')
     return 0, time
-​
+
 def map_cb_time(row):
     time = row[1]
     time = datetime.datetime.strptime(time, '%H:%M:%S+00')
     return 0, time
 
-
 def filter_match(row):
     import csv
     yc_time = row[1][0]
     cb_time = row[1][1]
-​
+
     return yc_time <= cb_time <= yc_time + datetime.timedelta(minutes=10)
-​
+
 def change_key(row):
     return row[1][0], row[1][1]
-​
+
 def map_keynum(row):
     return row[0], 1
-​
+
 def add(k2v2):
     k2, v2 = k2v2
     k2 = k2[1]
     v2 = v2[1]
     return sum(k2,v2)
-        
-
 
 res = yc1.map(map_yc_time).join(cb1.map(map_cb_time)).filter(filter_match).\
 map(change_key).groupByKey().map(map_keynum)
 
-
 print res.reduce(add).collect()
-
-
-​
