@@ -1,0 +1,157 @@
+
+#sc = pyspark()
+import pysal
+import geopandas as gpd
+from shapely import geometry
+import geopy
+from math import radians, cos, sin, asin, sqrt
+import time
+import datetime
+
+
+path_cb ="hdfs://tmp/citibike.csv"
+path_yc = "hdfs://tmp/yellow.csv.gz"
+cb = sc.textFile('citibike.csv', 8)
+yc = sc.textFile('yellow.csv.gz')
+​
+
+
+0
+interested_date = '2015-02-01'
+​
+def ft1(row):
+    '''
+    for yellow cab
+    '''
+    return len(row.split(',')) == 6
+​
+def map_date_loc_yc(row):
+    '''
+    returns dropoff datetime and loc 
+    for yellow cab trips
+    '''
+    row = row.split(',')
+    datetime, lat, lng = row[1], row[-2], row[-1]
+    try:
+        date, time = datetime.split(' ')
+        loc = [lat, lng]
+        return date, time, loc
+    
+    except ValueError:
+        return 0
+​
+    #return lat
+​
+def map_date_loc_cb(row):
+    '''
+    returns citibike 
+    starttime, start_station_name, start_station_latitude, start_station_longitude'''
+    row = row.split(',')
+    datetime, start_station_name, start_station_latitude, start_station_longitude = \
+    row[3], row[6], row[7], row[8]
+    date, time = datetime.split(' ')
+    return date, time, start_station_name, start_station_latitude, start_station_longitude
+​
+def ft_citibike_start_station_date(row):
+    return row[2] == 'Greenwich Ave & 8 Ave' and row[0] == interested_date
+​
+def ft_yc_date(row):
+    return row[0] == interested_date
+​
+def ft_nonnull(row):
+    
+    return row != 0
+​
+def ft_distance(row):
+    """
+    Calculate the great circle distance between point and 
+    station 
+    """
+    
+    lat1, lon1 = row[2]
+    try:
+        lat1, lon1 = float(lat1), float(lon1)
+        lat2, lon2 =  [40.73901691, -74.00263761]
+        # convert decimal degrees to radians 
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+        # haversine formula 
+        dlon = lon2 - lon1 
+        dlat = lat2 - lat1 
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a)) 
+        miles = 69.172 * c
+        return miles <= 0.25
+    except ValueError:
+        return False
+In [172]:
+
+# filter out header
+# mapping date, time, loc
+# filter date
+# filter out distance within 0.25 mile to interested citibike station
+yc1 = yc.filter(lambda x: x[0:4] != 'tpep').filter(ft1).map(map_date_loc_yc).filter(ft_nonnull).\
+filter(ft_yc_date).filter(ft_distance)
+​
+# filter out header
+# mapping date, time, stationname, lat, lng 
+cb1 = cb.filter(lambda x: x[0:4] != 'cart').map(map_date_loc_cb).\
+filter(ft_citibike_start_station_date)
+In [181]:
+
+0, 
+#time = datetime.datetime.strptime(time, "%H:%M:%S+%MS").timetuple()
+def map_yc_time(row):
+    time = row[1]
+    time = datetime.datetime.strptime(time, '%H:%M:%S.0')
+    return 0, time
+​
+def map_cb_time(row):
+    time = row[1]
+    time = datetime.datetime.strptime(time, '%H:%M:%S+00')
+    return 0, time
+In [179]:
+
+yc1.map(map_yc_time).take(2)
+#cb1.map(map_cb_time).take(2)
+Out[179]:
+[datetime.datetime(1900, 1, 1, 0, 10, 10),
+ datetime.datetime(1900, 1, 1, 0, 3, 36)]
+In [209]:
+
+def filter_match(row):
+    import csv
+    yc_time = row[1][0]
+    cb_time = row[1][1]
+​
+    return yc_time <= cb_time <= yc_time + datetime.timedelta(minutes=10)
+​
+def change_key(row):
+    return row[1][0], row[1][1]
+​
+def map_keynum(row):
+    return row[0], 1
+​
+def add(k2v2):
+    k2, v2 = k2v2
+    return sum(k2,v2)
+        
+In [33]:
+
+# for each yellow cab trip record, 
+time = '00:03:36.0'
+datetime.datetime.strptime(time, '%H:%M:%S.0') #+ datetime.timedelta(minutes=10)
+Out[33]:
+datetime.datetime(1900, 1, 1, 0, 3, 36)
+In [ ]:
+
+yc1.map(map_yc_time).join(cb1.map(map_cb_time)).filter(filter_match)
+In [204]:
+
+​
+res = yc1.map(map_yc_time).join(cb1.map(map_cb_time)).filter(filter_match).map(change_key).groupByKey().map(map_keynum)
+In [ ]:
+
+print res.reduce(add)
+In [ ]:
+
+​
