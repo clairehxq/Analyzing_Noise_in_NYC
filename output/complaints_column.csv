@@ -1,0 +1,53 @@
+,0
+0,Unique Key
+1,Created Date
+2,Closed Date
+3,Agency
+4,Agency Name
+5,Complaint Type
+6,Descriptor
+7,Location Type
+8,Incident Zip
+9,Incident Address
+10,Street Name
+11,Cross Street 1
+12,Cross Street 2
+13,Intersection Street 1
+14,Intersection Street 2
+15,Address Type
+16,City
+17,Landmark
+18,Facility Type
+19,Status
+20,Due Date
+21,Resolution Action Updated Date
+22,Community Board
+23,Borough
+24,X Coordinate (State Plane)
+25,Y Coordinate (State Plane)
+26,Park Facility Name
+27,Park Borough
+28,School Name
+29,School Number
+30,School Region
+31,School Code
+32,School Phone Number
+33,School Address
+34,School City
+35,School State
+36,School Zip
+37,School Not Found
+38,School or Citywide Complaint
+39,Vehicle Type
+40,Taxi Company Borough
+41,Taxi Pick Up Location
+42,Bridge Highway Name
+43,Bridge Highway Direction
+44,Road Ramp
+45,Bridge Highway Segment
+46,Garage Lot Name
+47,Ferry Direction
+48,Ferry Terminal Name
+49,Latitude
+50,Longitude
+51,Location
