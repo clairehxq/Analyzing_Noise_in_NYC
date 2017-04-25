@@ -6,3 +6,6 @@ secrets.json
 
 # data files
 *.csv
+
+# dat file?
+.dat
