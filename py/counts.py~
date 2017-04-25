@@ -1,0 +1,18 @@
+from math import radians, cos, sin, asin, sqrt
+import time
+import datetime
+import pyspark
+from operator import add
+sc = pyspark.SparkContext()
+path_noise ='hdfs:///user/xh895/BDM_Project/311_Noise_Complaints.csv'
+path_comp_all = 'hdfs:////user/xh895/BDM_Project/
+
+cb = sc.textFile(path_noise, 8)
+
+print cb.map(lambda x: x).take(1)
+
+def mapper(row):
+    if row['Complaint Type'][:5] == 'Noise':
+        yield (row['Unique Key'], row['Created Date'], row['Closed Date'], row['Agency'], row['Complaint Type'],\
+    row['Latitude'], row['X Coordinate (State Plane)'], row['Y Coordinate (State Plane)'], row['Incident Zip'])
+  
