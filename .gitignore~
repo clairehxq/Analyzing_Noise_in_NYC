@@ -9,15 +9,3 @@ secrets.json
 
 # dat file?
 .dat
-
-#DS_Store
-.DS_Store
-
-#.*
-*.#
-
-# editing file
-.py~
-
-# not finished notebook
-Untitled*
