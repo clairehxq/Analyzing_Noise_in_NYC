@@ -5,16 +5,22 @@ import datetime
 import pyspark
 from operator import add
 from shapely.geometry import Point
-
-import sys                                                                
-sys.stdout = open('../output/reduce.txt', 'w')  
-
+from shapely import geometry
+import geopandas as gpd
+import sys
+import os                                                                
+sys.stdout = open('../output/reduce_on_ct.txt', 'w')  
+cwd = os.getcwd()
 sc = pyspark.SparkContext()
 
 path_noise ='hdfs:///user/xh895/BDM_Project/311_Noise_Complaints.csv'
 path_comp_all = 'hdfs:////user/xh895/BDM_Project/311_dl_32817.csv'
 path_local = '/Users/macbook/Google Drive/BDM-project/311_dl_32817.csv'
-path_ct = '../output/clean_census_tract.csv'
+#path_ct = os.path.join(os.path.dirname(cwd),'data/nyct2010_16d/nyct2010.shp')
+path_ct = '/scratch/xh895/sjoin-data/nyct2010_16d/nyct2010.shp'
+ct_shp = gpd.read_file(path_ct)
+print 'census tract shapefile successfully loaded as:', type(ct_shp)
+
 #noise  = sc.textFile(path_noise, 8)
 #all_comp = sc.textFile(path_comp_all, 8)
 all_comp = sc.textFile(path_comp_all, 8)
@@ -53,6 +59,7 @@ def mp_groupbykey(row):
     '''
     set key
     '''
+    row, ct = row
     time = row[1]
     zipcode = row[9]
     year = time.year
@@ -60,23 +67,28 @@ def mp_groupbykey(row):
     day = time.day
     hour = time.hour
     minute = time.minute
-    ct = row[10]
     #return ((year, month, day, hour, zipcode), 1)
     return ((year, ct), 1)
+
+def ft_have_geo(row):
+    if '.' in row[8]:
+        return row[8].split('.')[1].isdigit()
+    else:
+        return row[8].isdigit()
+    
 
 def mp_sjoin_ct(row):
     #load in ct file
     crs = {'init': 'epsg:2263'}
-    ct_shp = gpd.GeoDataFrame(path_ct, crs = crs, geometry = geometry)
-    crs = {'init': 'epsg:2263'}
-    X = row[-3]
-    Y = row[-2]
-    geo_point = [Point(xy) for xy in zip(X, Y)]
+    ct_shp.to_crs(crs)
+    X = float(row[7])
+    Y = float(row[8])
+    geo_point = Point((X,Y))
     ct_number =  ct_shp[ct_shp.geometry.contains(geo_point)].iloc[0,0]
-    row[10] = ct_number
-    return row
+    return row, ct_number
 
 res = all_comp.filter(ft_header).map(mp_col)
-ress = res.filter(ft_noise).filter(ft_havetime).map(mp_sjoin_ct).map(mp_groupbykey)
+ress = res.filter(ft_noise).filter(ft_havetime).filter(ft_have_geo).map(mp_sjoin_ct).map(mp_groupbykey)
 
+print ress.take(2000)
 print ress.reduceByKey(add).collect()
