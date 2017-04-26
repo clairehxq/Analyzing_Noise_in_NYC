@@ -19,11 +19,10 @@ path_local = '/Users/macbook/Google Drive/BDM-project/311_dl_32817.csv'
 #path_ct = os.path.join(os.path.dirname(cwd),'data/nyct2010_16d/nyct2010.shp')
 path_ct = '/scratch/xh895/sjoin-data/nyct2010_16d/nyct2010.shp'
 ct_shp = gpd.read_file(path_ct)
-print 'census tract shapefile successfully loaded as:', type(ct_shp)
 
 #noise  = sc.textFile(path_noise, 8)
 #all_comp = sc.textFile(path_comp_all, 8)
-all_comp = sc.textFile(path_comp_all, 8)
+all_comp = sc.textFile(path_comp_all, 44)
 
 # refer column names & loc in /output/complaints_column.csv
 def ft_header(row):
@@ -72,9 +71,9 @@ def mp_groupbykey(row):
 
 def ft_have_geo(row):
     if '.' in row[8]:
-        return row[8].split('.')[1].isdigit()
+        return (row[8].split('.')[1].isdigit()) and (row[8].split('.')[0].isdigit())
     else:
-        return row[8].isdigit()
+        return (row[8].isdigit()) and (row[7].isdigit())
     
 
 def mp_sjoin_ct(row):
@@ -84,11 +83,13 @@ def mp_sjoin_ct(row):
     X = float(row[7])
     Y = float(row[8])
     geo_point = Point((X,Y))
-    ct_number =  ct_shp[ct_shp.geometry.contains(geo_point)].iloc[0,0]
+    try:
+        ct_number =  ct_shp[ct_shp.geometry.contains(geo_point)].iloc[0,0]
+    except IndexError:
+        ct_number = 0
     return row, ct_number
 
 res = all_comp.filter(ft_header).map(mp_col)
 ress = res.filter(ft_noise).filter(ft_havetime).filter(ft_have_geo).map(mp_sjoin_ct).map(mp_groupbykey)
 
-print ress.take(2000)
 print ress.reduceByKey(add).collect()
