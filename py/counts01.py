@@ -62,6 +62,9 @@ def mp_groupbykey(row):
     #return ((year, month, day, hour, zipcode), 1)
     return ((year, zipcode), 1)
 
+def mp_sjoin_ct(row):
+    
+
 res = all_comp.filter(ft_header).map(mp_col)
 ress = res.filter(ft_noise).filter(ft_havetime).map(mp_groupbykey)
 

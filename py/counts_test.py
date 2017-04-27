@@ -9,7 +9,7 @@ from shapely import geometry
 import geopandas as gpd
 import sys
 import os                                                                
-sys.stdout = open('../output/reduce_on_ct.txt', 'w')  
+sys.stdout = open('../output/reduce.test.txt', 'w')  
 cwd = os.getcwd()
 sc = pyspark.SparkContext()
 
@@ -22,7 +22,7 @@ ct_shp = gpd.read_file(path_ct)
 
 #noise  = sc.textFile(path_noise, 8)
 #all_comp = sc.textFile(path_comp_all, 8)
-all_comp = sc.textFile(path_comp_all, 36)
+all_comp = sc.textFile(path_comp_all, 8)
 
 # refer column names & loc in /output/complaints_column.csv
 def ft_header(row):
@@ -67,7 +67,7 @@ def mp_groupbykey(row):
     hour = time.hour
     minute = time.minute
     #return ((year, month, day, hour, zipcode), 1)
-    return ((year, ct), 1)
+    return ((year, month, day, hour, ct), 1)
 
 def ft_have_geo(row):
     if '.' in row[8]:
@@ -92,4 +92,4 @@ def mp_sjoin_ct(row):
 res = all_comp.filter(ft_header).map(mp_col)
 ress = res.filter(ft_noise).filter(ft_havetime).filter(ft_have_geo).map(mp_sjoin_ct).map(mp_groupbykey)
 
-print ress.reduceByKey(add).take(2000)
+print ress.reduceByKey(add).take(100)

@@ -8,21 +8,26 @@ from shapely.geometry import Point
 from shapely import geometry
 import geopandas as gpd
 import sys
-import os                                                                
-sys.stdout = open('../output/reduce_on_ct.txt', 'w')  
+import os
+                                                                
+sys.stdout = open('../output/reduce_hour_ct.txt', 'w')  
 cwd = os.getcwd()
 sc = pyspark.SparkContext()
 
 path_noise ='hdfs:///user/xh895/BDM_Project/311_Noise_Complaints.csv'
-path_comp_all = 'hdfs:////user/xh895/BDM_Project/311_dl_32817.csv'
+path_comp_all = 'hdfs:///user/xh895/BDM_Project/311_dl_32817.csv'
 path_local = '/Users/macbook/Google Drive/BDM-project/311_dl_32817.csv'
-#path_ct = os.path.join(os.path.dirname(cwd),'data/nyct2010_16d/nyct2010.shp')
-path_ct = '/scratch/xh895/sjoin-data/nyct2010_16d/nyct2010.shp'
+path_ct = os.path.join(os.path.dirname(cwd),'data/nyct2010_16d/nyct2010.shp')
+
+path_ct_hdp = 'hdfs:///user/xh895/BDM_Project/nyct2010_16d/nyct2010.shp'
 ct_shp = gpd.read_file(path_ct)
+crs = {'init': 'epsg:2263'}
+ct_shp.to_crs(crs)  
 
 #noise  = sc.textFile(path_noise, 8)
 #all_comp = sc.textFile(path_comp_all, 8)
-all_comp = sc.textFile(path_comp_all, 36)
+all_comp = sc.textFile(path_comp_all)
+all_res = sc.textFile(path_res)
 
 # refer column names & loc in /output/complaints_column.csv
 def ft_header(row):
@@ -40,7 +45,6 @@ def mp_col(row):
     Unique, Created Date, Closed Date, Agency, Complaint Type, Latitude, Longitude, X Coordinate (State Plane),\
     Y Coordinate (State Plane), Incident Zip
     '''
-    import datetime
     row = row.split(',')
     
     try:
@@ -67,7 +71,16 @@ def mp_groupbykey(row):
     hour = time.hour
     minute = time.minute
     #return ((year, month, day, hour, zipcode), 1)
-    return ((year, ct), 1)
+    return ((year, month, day, hour, ct), 1)
+
+def mp_reskey(row):
+    row, count  = row
+    year = row[0]
+    month = row[1]
+    day = row[2]
+    hour = row[3]
+    ct = row[4]
+    return ((hour, ct), 1)
 
 def ft_have_geo(row):
     if '.' in row[8]:
@@ -76,20 +89,17 @@ def ft_have_geo(row):
         return (row[8].isdigit()) and (row[7].isdigit())
     
 
-def mp_sjoin_ct(row):
+def mp_sjoin_ct(rows):
     #load in ct file
-    crs = {'init': 'epsg:2263'}
-    ct_shp.to_crs(crs)
-    X = float(row[7])
-    Y = float(row[8])
-    geo_point = Point((X,Y))
-    try:
-        ct_number =  ct_shp[ct_shp.geometry.contains(geo_point)].iloc[0,0]
-    except IndexError:
-        ct_number = 0
-    return row, ct_number
+    for row in rows:
+        X = float(row[7])
+        Y = float(row[8])
+        geo_point = Point((X,Y))
+        try:
+            ct_number =  ct_shp[ct_shp.geometry.contains(geo_point)].iloc[0,0]
+        except IndexError:
+            ct_number = 0
+        yield row, ct_number
 
-res = all_comp.filter(ft_header).map(mp_col)
-ress = res.filter(ft_noise).filter(ft_havetime).filter(ft_have_geo).map(mp_sjoin_ct).map(mp_groupbykey)
 
-print ress.reduceByKey(add).take(2000)
+print all_res.map(mp_reskey).reduceByKey(add).collect()
